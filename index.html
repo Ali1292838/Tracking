@@ -3,148 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoLink Tracker</title>
+    <title>Location Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --primary: #2c3e50;
-            --secondary: #3498db;
-            --accent: #e74c3c;
-        }
-
-        * {
-            box-sizing: border-box;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            --primary: #2F80ED;
+            --background: #f0f4f8;
         }
 
         body {
+            font-family: 'Segoe UI', system-ui;
             margin: 0;
             padding: 20px;
-            background: #f5f6fa;
+            background: var(--background);
             min-height: 100vh;
         }
 
         .container {
             max-width: 800px;
             margin: 0 auto;
+        }
+
+        .generator {
             background: white;
-            padding: 30px;
+            padding: 2rem;
             border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .generator-form {
-            display: grid;
-            gap: 15px;
-        }
-
-        input, button {
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
         }
 
         button {
-            background: var(--secondary);
+            background: var(--primary);
             color: white;
             border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s;
+            font-size: 16px;
+            transition: transform 0.2s;
         }
 
         button:hover {
-            background: #2980b9;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
 
-        .link-list {
-            margin-top: 30px;
-            border-top: 2px solid #eee;
-            padding-top: 20px;
+        .track-link {
+            display: block;
+            padding: 1rem;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-top: 1rem;
+            text-align: center;
+            transition: transform 0.2s;
         }
 
         #map {
-            height: 400px;
-            width: 100%;
-            border-radius: 10px;
-            margin-top: 20px;
-            display: none;
+            height: 300px;
+            border-radius: 12px;
+            margin-top: 1rem;
         }
 
-        .tracking-link {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            word-break: break-all;
+        .results {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 2rem;
         }
 
-        .hidden {
-            display: none;
-        }
-
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--secondary);
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .latlng {
+            font-family: monospace;
+            background: var(--background);
+            padding: 0.5rem;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div id="generatorSection">
-            <h1>🛰️ Create Tracking Link</h1>
-            <form class="generator-form" onsubmit="generateLink(event)">
-                <input type="url" id="targetUrl" 
-                       placeholder="Enter destination URL" required>
-                <button type="submit">Generate Tracking Link</button>
-            </form>
-            <div class="link-list">
-                <h2>Active Trackers</h2>
-                <div id="linkContainer"></div>
-            </div>
-            <div id="map"></div>
+        <div class="generator">
+            <h1>🔗 Create Tracking Link</h1>
+            <button onclick="generateLink()">Generate New Tracking Link</button>
+            <div id="linkContainer"></div>
         </div>
 
-        <div id="trackerSection" class="hidden">
-            <div class="loader"></div>
-            <p>Capturing location data...</p>
+        <div class="results" id="results" style="display: none;">
+            <h2>📍 Location Detected</h2>
+            <div id="map"></div>
+            <p>Coordinates: <span class="latlng" id="coordinates"></span></p>
+            <p>Accuracy: <span id="accuracy"></span> meters</p>
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const TRACKING_DATA_KEY = 'geoLinkData';
-        
-        function generateLink(e) {
-            e.preventDefault();
-            const targetUrl = document.getElementById('targetUrl').value;
-            const trackingId = self.crypto.randomUUID();
-            const fullUrl = `${location.href}?track=${trackingId}&redirect=${encodeURIComponent(targetUrl)}`;
+        function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+                .replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+        }
+
+        function generateLink() {
+            const trackingId = uuidv4();
+            const trackingUrl = `${window.location.href}?track=${trackingId}`;
             
-            const trackingData = {
-                id: trackingId,
-                redirectUrl: targetUrl,
-                locations: [],
-                createdAt: new Date().toISOString()
-            };
+            const link = document.createElement('a');
+            link.href = trackingUrl;
+            link.className = 'track-link';
+            link.textContent = trackingUrl;
+            link.target = '_blank';
+            
+            document.getElementById('linkContainer').appendChild(link);
+        }
 
-            // Save to localStorage
-            const existingData = JSON.parse(localStorage.getItem(TRACKING_DATA_KEY)) || {};
-            existingData[trackingId] = trackingData;
-            localStorage.setItem(TRACKING_DATA_KEY, JSON.stringify(existingData));
+        const urlParams = new URLSearchParams(window.location.search);
+        const trackId = urlParams.get('track');
 
-            // Display generated link
-            const linkDiv = document.createElement('div');
-            linkDiv.className = 'tracking-link';
-            linkDiv.innerHTML = `
-                <strong>Tracking Link:</strong><br>
-                <a href="${fullUrl}" target="_
+        if (trackId) {
+            navigator.geolocation.getCurrentPosition(position => {
+                document.getElementById('results').style.display = 'block';
+                
+                const coords = position.coords;
+                document.getElementById('coordinates').textContent = 
+                    `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`;
+                document.getElementById('accuracy').textContent = coords.accuracy.toFixed(1);
+
+                const map = L.map('map').setView([coords.latitude, coords.longitude], 13);
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.marker([coords.latitude, coords.longitude]).addTo(map)
+                    .bindPopup('Approximate location').openPopup();
+
+                const entry = {
+                    id: trackId,
+                    timestamp: new Date().toISOString(),
+                    coords: {
+                        lat: coords.latitude,
+                        lng: coords.longitude
+                    }
+                };
+                
+                let history = JSON.parse(localStorage.getItem('trackingData') || '[]');
+                history.push(entry);
+                localStorage.setItem('trackingData', JSON.stringify(history));
+            }, error => {
+                alert('Error getting location: ' + error.message);
+            }, {
+                enableHighAccuracy: true,
+                timeout: 5000
+            });
+        }
+    </script>
+</body>
+</html>
+</content>
+</create_file>
+
+<attempt_completion>

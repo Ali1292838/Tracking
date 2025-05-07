@@ -3,164 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Location Tracker</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>GeoLink Tracker</title>
     <style>
         :root {
-            --primary: #2F80ED;
-            --background: #f0f4f8;
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
         }
 
         body {
-            font-family: 'Segoe UI', system-ui;
-            margin: 0;
-            padding: 20px;
-            background: var(--background);
-            min-height: 100vh;
-        }
-
-        .container {
+            font-family: 'Segoe UI', system-ui, sans-serif;
             max-width: 800px;
             margin: 0 auto;
+            padding: 20px;
+            background: #f5f6fa;
         }
 
-        .generator {
+        .dashboard {
             background: white;
-            padding: 2rem;
             border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tracker-form {
+            display: grid;
+            gap: 1rem;
             margin-bottom: 2rem;
         }
 
+        input[type="text"] {
+            padding: 12px;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--secondary);
+            outline: none;
+        }
+
         button {
-            background: var(--primary);
+            background: var(--secondary);
             color: white;
-            border: none;
             padding: 12px 24px;
+            border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
-            transition: transform 0.2s;
+            font-weight: 600;
+            transition: transform 0.2s ease, background 0.3s ease;
         }
 
         button:hover {
+            background: #2980b9;
             transform: translateY(-2px);
         }
 
-        .track-link {
-            display: block;
+        .link-display {
+            background: #f8f9fa;
             padding: 1rem;
-            background: var(--primary);
-            color: white;
-            text-decoration: none;
             border-radius: 8px;
-            margin-top: 1rem;
-            text-align: center;
-            transition: transform 0.2s;
+            word-break: break-all;
+            margin: 1rem 0;
         }
 
         #map {
-            height: 300px;
+            height: 400px;
+            width: 100%;
             border-radius: 12px;
-            margin-top: 1rem;
+            margin: 2rem 0;
+            display: none;
         }
 
-        .results {
+        .location-card {
             background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-top: 2rem;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
-        .latlng {
-            font-family: monospace;
-            background: var(--background);
-            padding: 0.5rem;
-            border-radius: 4px;
+        .consent-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="generator">
-            <h1>🔗 Create Tracking Link</h1>
-            <button onclick="generateLink()">Generate New Tracking Link</button>
-            <div id="linkContainer"></div>
+    <div class="dashboard">
+        <h1>🌍 GeoLink Tracker</h1>
+        
+        <div class="consent-warning">
+            <strong>Important:</strong> This system only works when users explicitly grant location access. All tracking requires user consent.
         </div>
 
-        <div class="results" id="results" style="display: none;">
-            <h2>📍 Location Detected</h2>
-            <div id="map"></div>
-            <p>Coordinates: <span class="latlng" id="coordinates"></span></p>
-            <p>Accuracy: <span id="accuracy"></span> meters</p>
+        <div class="tracker-form">
+            <input type="text" id="targetUrl" placeholder="Enter URL to track (e.g., https://example.com)">
+            <button onclick="generateTrackingLink()">Create Tracking Link</button>
         </div>
+
+        <div id="generatedLink" class="link-display" style="display: none;"></div>
+        <div id="map"></div>
+        <div id="results"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        function uuidv4() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-                .replace(/[xy]/g, function(c) {
-                    const r = Math.random() * 16 | 0;
-                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                    return v.toString(16);
+        let trackingData = JSON.parse(localStorage.getItem('trackingData')) || {};
+
+        function generateUniqueId() {
+            return 'track-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function generateTrackingLink() {
+            const targetUrl = document.getElementById('targetUrl').value;
+            if (!targetUrl) return alert('Please enter a URL');
+            
+            const trackingId = generateUniqueId();
+            const trackingLink = `${window.location.href}#${trackingId}`;
+            
+            trackingData[trackingId] = {
+                target: targetUrl,
+                accesses: []
+            };
+            
+            localStorage.setItem('trackingData', JSON.stringify(trackingData));
+            
+            const display = document.getElementById('generatedLink');
+            display.style.display = 'block';
+            display.innerHTML = `🔗 Tracking Link: <a href="${trackingLink}" target="_blank">${trackingLink}</a>`;
+        }
+
+        function showLocation(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML += `
+                <div class="location-card">
+                    <h3>📍 Location Detected</h3>
+                    <p>Latitude: ${latitude}</p>
+                    <p>Longitude: ${longitude}</p>
+                    <p>Accuracy: ${position.coords.accuracy} meters</p>
+                    <p>Timestamp: ${new Date(position.timestamp).toLocaleString()}</p>
+                </div>
+            `;
+
+            if (typeof L !== 'undefined') {
+                const map = L.map('map').setView([latitude, longitude], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.marker([latitude, longitude]).addTo(map)
+                    .bindPopup('Approximate location');
+                document.getElementById('map').style.display = 'block';
+            }
+        }
+
+        function handleTracking() {
+            const trackingId = window.location.hash.substring(1);
+            if (!trackingId || !trackingData[trackingId]) return;
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    trackingData[trackingId].accesses.push({
+                        coords: position.coords,
+                        timestamp: Date.now()
+                    });
+                    localStorage.setItem('trackingData', JSON.stringify(trackingData));
+                    window.location.href = trackingData[trackingId].target;
+                }, error => {
+                    console.error('Error getting location:', error);
+                    window.location.href = trackingData[trackingId].target;
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
                 });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+                window.location.href = trackingData[trackingId].target;
+            }
         }
 
-        function generateLink() {
-            const trackingId = uuidv4();
-            const trackingUrl = `${window.location.href}?track=${trackingId}`;
-            
-            const link = document.createElement('a');
-            link.href = trackingUrl;
-            link.className = 'track-link';
-            link.textContent = trackingUrl;
-            link.target = '_blank';
-            
-            document.getElementById('linkContainer').appendChild(link);
-        }
+        // Initialize map library
+        const mapScript = document.createElement('script');
+        mapScript.src = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js';
+        document.head.appendChild(mapScript);
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const trackId = urlParams.get('track');
-
-        if (trackId) {
-            navigator.geolocation.getCurrentPosition(position => {
-                document.getElementById('results').style.display = 'block';
-                
-                const coords = position.coords;
-                document.getElementById('coordinates').textContent = 
-                    `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`;
-                document.getElementById('accuracy').textContent = coords.accuracy.toFixed(1);
-
-                const map = L.map('map').setView([coords.latitude, coords.longitude], 13);
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                L.marker([coords.latitude, coords.longitude]).addTo(map)
-                    .bindPopup('Approximate location').openPopup();
-
-                const entry = {
-                    id: trackId,
-                    timestamp: new Date().toISOString(),
-                    coords: {
-                        lat: coords.latitude,
-                        lng: coords.longitude
-                    }
-                };
-                
-                let history = JSON.parse(localStorage.getItem('trackingData') || '[]');
-                history.push(entry);
-                localStorage.setItem('trackingData', JSON.stringify(history));
-            }, error => {
-                alert('Error getting location: ' + error.message);
-            }, {
-                enableHighAccuracy: true,
-                timeout: 5000
-            });
+        // Handle page load
+        if (window.location.hash) {
+            handleTracking();
         }
     </script>
 </body>
 </html>
-</content>
-</create_file>
-
-<attempt_completion>
